@@ -70,7 +70,8 @@
                     "application/vnd.vegalite.v4+json",
                     "application/x-nteract-model-debug+json",
                     "text/latex",
-                    "text/vnd.plotly.v1+html"
+                    "text/vnd.plotly.v1+html",
+                    "text/html"
                 ]
             }
         ]

@@ -85,6 +85,10 @@ const mimeTypeToImport: TransformData[] = [
     new TransformData('text/latex', async () => {
         const module = await import(/* webpackChunkName: "nteract_transforms" */ '@nteract/transforms');
         return module.LaTeXTransform;
+    }),
+    new TransformData('text/html', async () => {
+        const module = await import(/* webpackChunkName: "nteract_transforms" */ '@nteract/transforms');
+        return module.HTMLTransform;
     })
 ];
 

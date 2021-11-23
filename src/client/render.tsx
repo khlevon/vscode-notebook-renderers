@@ -12,6 +12,7 @@ import { getTransform } from './transforms';
 import { OpenImageInPlotViewer, SaveImageAs, IsJupyterExtensionInstalled } from './constants';
 
 (globalThis as any).__isJupyterInstalled = false;
+
 export interface ICellOutputProps {
     output: nbformat.IExecuteResult | nbformat.IDisplayData;
     mimeType: string;
@@ -19,21 +20,32 @@ export interface ICellOutputProps {
     outputId: string;
 }
 
-export class CellOutput extends React.Component<ICellOutputProps> {
+export interface ICellOutputState {
+    audioUrl?: string;
+}
+
+export class CellOutput extends React.Component<ICellOutputProps, ICellOutputState> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly saveAsIcon: React.RefObject<HTMLButtonElement>;
     private readonly plotIcon: React.RefObject<HTMLButtonElement>;
     private readonly disposables: {
         dispose: () => void;
     }[] = [];
+
     constructor(prop: ICellOutputProps) {
         super(prop);
         this.saveAsIcon = React.createRef<HTMLButtonElement>();
         this.plotIcon = React.createRef<HTMLButtonElement>();
+
+        this.state = {
+            audioUrl: undefined,
+        };
     }
+
     public componentWillUnmount() {
         this.disposables.forEach((d) => d.dispose());
     }
+
     public render() {
         const mimeBundle = this.props.output.data as nbformat.IMimeBundle; // NOSONAR
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -57,6 +69,11 @@ export class CellOutput extends React.Component<ICellOutputProps> {
                     this.props.mimeType,
                     (data as unknown) as Blob | string,
                     this.props.output.metadata
+                );
+            case "text/html":
+                return this.renderHtml(
+                    data,
+                    this.props.mimeType,
                 );
             default:
                 return this.renderOutput(data, this.props.mimeType);
@@ -210,6 +227,43 @@ export class CellOutput extends React.Component<ICellOutputProps> {
             </div>
         );
     }
+
+    private renderHtml(data: nbformat.MultilineString | JSONObject, mimeType?: string) {
+        if(String(data).includes('<audio')) {
+            return this.renderAudio(data, mimeType);
+        }
+
+        return this.renderOutput(data, mimeType);
+    }
+
+    private renderAudio(data: nbformat.MultilineString | JSONObject, mimeType?: string) {
+
+        const tmpDom = document.createElement('div');
+        tmpDom.innerHTML = String(data);
+
+        const audioElem = tmpDom.querySelector("audio");
+        const sourceElem = audioElem?.querySelector("source");
+
+        if(!(sourceElem && sourceElem.src && sourceElem.src.includes(';base64,'))) {
+            return this.renderOutput(data, mimeType);
+        }
+
+        const base64DataUrl = sourceElem.src.split(";base64,");
+
+        const contentType = base64DataUrl[0].slice(5);
+        const base64Data = base64DataUrl[1];
+
+        const blob = b64toBlob(base64Data, contentType);
+        const blobUrl = URL.createObjectURL(blob);
+
+        return (
+            <div>
+              <audio controls src={blobUrl}></audio>
+            </div>
+        );
+    }
+
+
     private renderOutput(data: nbformat.MultilineString | JSONObject, mimeType?: string) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-vars, no-unused-vars, @typescript-eslint/no-explicit-any
         const Transform: any = getTransform(this.props.mimeType!);
@@ -228,6 +282,7 @@ export class CellOutput extends React.Component<ICellOutputProps> {
             </div>
         );
     }
+
     private renderLatex(data: nbformat.MultilineString | JSONObject) {
         // Fixup latex to make sure it has the requisite $$ around it
         data = fixMarkdown(concatMultilineString(data as nbformat.MultilineString, true), true);
@@ -238,3 +293,24 @@ export class CellOutput extends React.Component<ICellOutputProps> {
 function isVegaPlot(mimeType: string) {
     return mimeType.includes('application/vnd.vega');
 }
+
+
+function b64toBlob(b64Data: string, contentType='', sliceSize=512) {
+    const byteCharacters = atob(b64Data);
+    const byteArrays = [];
+
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+      const slice = byteCharacters.slice(offset, offset + sliceSize);
+
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+
+    const blob = new Blob(byteArrays, {type: contentType});
+    return blob;
+  }
