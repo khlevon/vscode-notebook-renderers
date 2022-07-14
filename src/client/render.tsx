@@ -225,7 +225,7 @@ export class CellOutput extends React.Component<ICellOutputProps, ICellOutputSta
         );
     }
 
-    private renderHtml(data: nbformat.MultilineString | JSONObject, mimeType?: string) {
+    private renderHtml(data: nbformat.MultilineString | PartialJSONObject, mimeType?: string) {
         if(String(data).includes('<audio')) {
             return this.renderAudio(data, mimeType);
         }
@@ -233,7 +233,7 @@ export class CellOutput extends React.Component<ICellOutputProps, ICellOutputSta
         return this.renderOutput(data, mimeType);
     }
 
-    private renderAudio(data: nbformat.MultilineString | JSONObject, mimeType?: string) {
+    private renderAudio(data: nbformat.MultilineString | PartialJSONObject, mimeType?: string) {
 
         const tmpDom = document.createElement('div');
         tmpDom.innerHTML = String(data);
